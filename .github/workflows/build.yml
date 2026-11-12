@@ -1,0 +1,45 @@
+name: Compila APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Estrai il progetto dallo zip
+        run: unzip -q -o OrbitaTV-progetto.zip
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Compila
+        working-directory: orbita-tv
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Allega l'APK alla run
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrbitaTV-apk
+          path: orbita-tv/app/build/outputs/apk/release/*.apk
+
+      - name: Pubblica come release "latest" (link diretto per Downloader)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp orbita-tv/app/build/outputs/apk/release/app-release.apk OrbitaTV.apk
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest OrbitaTV.apk --title "Orbita TV – ultima build" --notes "Build automatica dal commit ${GITHUB_SHA::7}"
